@@ -27,7 +27,7 @@ class GachaInfo:
 
 prob_6_base = np.zeros(80)
 prob_6_base[0: 64] = 0.008
-prob_6_base[65: 80] = np.arange(1, 16) * 0.05
+prob_6_base[65: 80] = 0.008 + np.arange(1, 16) * 0.05
 prob_6_base[79] = 1.
 
 prob_5_base = np.zeros(10)
