@@ -186,9 +186,6 @@ def trace_to_stats_matrix(
             stats.append(data)
     
     return pd.DataFrame(stats)
-    
-
-res = simulate_matrix(1000)
 
 def plot_stat(stat_df: pd.DataFrame):
     fig, ax = plt.subplots(1, 2, figsize=(10, 6))
@@ -205,37 +202,56 @@ def plot_stat(stat_df: pd.DataFrame):
 
     return fig, ax
 
-plot_stat(trace_to_stats_matrix(res))
-
-plt.show()
-
-def plot_stat_5(stat_df: pd.DataFrame):
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+def plot_stat_5(
+        stat_df: pd.DataFrame,
+        ax: plt.Axes = None,
+    ):
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 
     stat_5 = stat_df.drop(columns=["up6_count"])
     stat_5 = stat_5.groupby(["iteration", "up5_count"]).sum().reset_index()
     sns.lineplot(data=stat_5, x="iteration", y="prob", hue="up5_count", ax=ax)
 
-    fig.tight_layout()
 
-    return fig, ax
-
-def plot_stat_6(stat_df: pd.DataFrame):
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+def plot_stat_6(
+        stat_df: pd.DataFrame,
+        ax: plt.Axes = None,
+    ):
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 
     stat_6 = stat_df.drop(columns=["up5_count"])
     stat_6 = stat_6.groupby(["iteration", "up6_count"]).sum().reset_index()
     sns.lineplot(data=stat_6, x="iteration", y="prob", hue="up6_count", ax=ax)
 
+def main_5(iterations: int, accumulate: bool = False):
+    traces = simulate_matrix(iterations)
+    stats = trace_to_stats_matrix(traces,
+        lookup_matrix=stat_lookup_accumulate_over_5 if accumulate else stat_lookup)
+    
+    stats = stats[stats["up5_count"] > 0]
+
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    plot_stat_5(stats, ax=ax)
+    ax.set_title("Accumulate over 5*")
     fig.tight_layout()
+    plt.show()
 
-    return fig, ax
+def main_6(iterations: int, accumulate: bool = False):
+    traces = simulate_matrix(iterations)
+    stats = trace_to_stats_matrix(traces,
+        lookup_matrix=stat_lookup_accumulate_over_6 if accumulate else stat_lookup)
+    
+    stats = stats[stats["up6_count"] > 0]
 
-plot_stat_5(trace_to_stats_matrix(res, lookup_matrix=stat_lookup_accumulate_over_5))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    plot_stat_6(stats, ax=ax)
+    ax.set_title("Accumulate over 6*")
+    fig.tight_layout()
+    plt.show()
 
-plt.show()
-
-plot_stat_6(trace_to_stats_matrix(res, lookup_matrix=stat_lookup_accumulate_over_6))
-
-plt.show()
+if __name__ == "__main__":
+    main_5(200, accumulate=True)
+    main_6(1000, accumulate=True)
 
