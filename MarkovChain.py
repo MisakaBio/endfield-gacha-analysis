@@ -251,6 +251,22 @@ def main_6(iterations: int, accumulate: bool = False):
     fig.tight_layout()
     plt.show()
 
+def up5_earlier_than_up6():
+    traces = simulate_matrix(150)
+    stats = trace_to_stats_matrix(traces)
+    stats = stats[stats["up6_count"] == 0]
+    stats = stats[stats["up5_count"] > 0]
+    stats = stats.drop(columns=["up5_count"])
+    stats = stats.drop(columns=["up6_count"])
+    stats = stats.groupby(["iteration"]).sum().reset_index()
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+    sns.lineplot(data=stats, x="iteration", y="prob", ax=ax)
+    ax.set_title("Up 5* earlier than up 6*")
+    fig.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     main_5(200, accumulate=True)
     main_6(1000, accumulate=True)
