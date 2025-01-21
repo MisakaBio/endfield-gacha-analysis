@@ -115,9 +115,16 @@ stat_lookup = stat_lookup.tocsc()
 stat_lookup_accumulate_over_5 = scipy.sparse.dok_matrix((len(state_list), stat_state_count))
 for state in state_list:
     c5, c6 = state.up5_count, state.up6_count
-    for count5 in range(max(c5, 1), max_up5_count + 1):
+    for count5 in range(1, c5 + 1):
         stat_lookup_accumulate_over_5[state_idx_mapping[state], get_stat_idx_direct(count5, c6)] = 1.
 stat_lookup_accumulate_over_5 = stat_lookup_accumulate_over_5.tocsc()
+
+stat_lookup_accumulate_over_6 = scipy.sparse.dok_matrix((len(state_list), stat_state_count))
+for state in state_list:
+    c5, c6 = state.up5_count, state.up6_count
+    for count6 in range(1, c6 + 1):
+        stat_lookup_accumulate_over_6[state_idx_mapping[state], get_stat_idx_direct(c5, count6)] = 1.
+stat_lookup_accumulate_over_6 = stat_lookup_accumulate_over_6.tocsc()
 
 assert np.allclose(transition_matrix.sum(axis=1), 1., atol=1e-3)
 assert np.allclose(transition_force_up6_matrix.sum(axis=1), 1., atol=1e-3)
@@ -199,6 +206,36 @@ def plot_stat(stat_df: pd.DataFrame):
     return fig, ax
 
 plot_stat(trace_to_stats_matrix(res))
+
+plt.show()
+
+def plot_stat_5(stat_df: pd.DataFrame):
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+
+    stat_5 = stat_df.drop(columns=["up6_count"])
+    stat_5 = stat_5.groupby(["iteration", "up5_count"]).sum().reset_index()
+    sns.lineplot(data=stat_5, x="iteration", y="prob", hue="up5_count", ax=ax)
+
+    fig.tight_layout()
+
+    return fig, ax
+
+def plot_stat_6(stat_df: pd.DataFrame):
+    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+
+    stat_6 = stat_df.drop(columns=["up5_count"])
+    stat_6 = stat_6.groupby(["iteration", "up6_count"]).sum().reset_index()
+    sns.lineplot(data=stat_6, x="iteration", y="prob", hue="up6_count", ax=ax)
+
+    fig.tight_layout()
+
+    return fig, ax
+
+plot_stat_5(trace_to_stats_matrix(res, lookup_matrix=stat_lookup_accumulate_over_5))
+
+plt.show()
+
+plot_stat_6(trace_to_stats_matrix(res, lookup_matrix=stat_lookup_accumulate_over_6))
 
 plt.show()
 
