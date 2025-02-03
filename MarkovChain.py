@@ -4,13 +4,14 @@ import tqdm.notebook as tnotebook
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import scipy
+import scipy.sparse
 import itertools
 from dataclasses import dataclass
 from collections import defaultdict
 
 max_up5_count = 6
 max_up6_count = 6
+
 
 @dataclass(unsafe_hash=True)
 class GachaInfo:
@@ -25,6 +26,7 @@ class GachaInfo:
         self.up5_count = min(up5_count, max_up5_count)
         self.up6_count = min(up6_count, max_up6_count)
 
+
 prob_6_base = np.zeros(80)
 prob_6_base[0: 64] = 0.008
 prob_6_base[65: 80] = 0.008 + np.arange(1, 16) * 0.05
@@ -37,10 +39,11 @@ prob_5_base[9] = 1.
 prob_6_is_up_6 = 0.5
 prob_5_is_up_5 = 0.5
 
+
 def transition(
-        state: GachaInfo,
-        force_up6: bool = False,
-    ) -> list[tuple[float, GachaInfo]]:
+    state: GachaInfo,
+    force_up6: bool = False,
+) -> list[tuple[float, GachaInfo]]:
     ret_prob = []
     ret_state = []
 
@@ -63,21 +66,22 @@ def transition(
     ret_prob.append(prob_6 * (1 - prob_6_is_up_6))
     ret_state.append(GachaInfo(0, 0, up5, up6))
 
-    if water_6 < 79: # has chance to get a 5
+    if water_6 < 79:  # has chance to get a 5
         # got a 5, is up
         ret_prob.append(prob_5 * prob_5_is_up_5)
         ret_state.append(GachaInfo(0, water_6 + 1, up5 + 1, up6))
         # got a 5, is not up
         ret_prob.append(prob_5 * (1 - prob_5_is_up_5))
         ret_state.append(GachaInfo(0, water_6 + 1, up5, up6))
-    
+
         if water_5 < 9:
             # got a 4
             ret_prob.append(prob_4)
             ret_state.append(GachaInfo(water_5 + 1, water_6 + 1, up5, up6))
-    
+
     assert np.isclose(np.sum(ret_prob), 1., atol=1e-6)
     return list(zip(ret_prob, ret_state))
+
 
 # save transition matrix
 state_list = [
@@ -101,9 +105,11 @@ for state in state_list:
 transition_matrix = transition_matrix.tocsc()
 transition_force_up6_matrix = transition_force_up6_matrix.tocsc()
 
-get_stat_idx = lambda state: state.up5_count * (max_up6_count + 1) + state.up6_count
-get_stat_idx_direct = lambda count5, count6: count5 * (max_up6_count + 1) + count6
-get_stat = lambda idx: (idx // (max_up6_count + 1), idx % (max_up6_count + 1))
+
+def get_stat_idx(state): return state.up5_count * (max_up6_count + 1) + state.up6_count
+def get_stat_idx_direct(count5, count6): return count5 * (max_up6_count + 1) + count6
+def get_stat(idx): return (idx // (max_up6_count + 1), idx % (max_up6_count + 1))
+
 
 stat_state_count = (max_up5_count + 1) * (max_up6_count + 1)
 stat_lookup = scipy.sparse.dok_matrix((len(state_list), stat_state_count))
@@ -129,6 +135,7 @@ stat_lookup_accumulate_over_6 = stat_lookup_accumulate_over_6.tocsc()
 assert np.allclose(transition_matrix.sum(axis=1), 1., atol=1e-3)
 assert np.allclose(transition_force_up6_matrix.sum(axis=1), 1., atol=1e-3)
 
+
 def simulate_matrix(n: int) -> pd.DataFrame:
     mc_distr = np.zeros(len(state_list))
     mc_distr[state_idx_mapping[GachaInfo()]] = 1.
@@ -142,6 +149,7 @@ def simulate_matrix(n: int) -> pd.DataFrame:
         trace.append(mc_distr)
 
     return np.vstack(trace)
+
 
 def trace_to_stats(trace: np.ndarray) -> pd.DataFrame:
     assert trace.ndim == 2
@@ -157,13 +165,14 @@ def trace_to_stats(trace: np.ndarray) -> pd.DataFrame:
                 "prob": trace[it, idx],
             }
             stats.append(data)
-    
+
     return pd.DataFrame(stats)
 
+
 def trace_to_stats_matrix(
-        trace: np.ndarray,
-        lookup_matrix=None,
-    ) -> pd.DataFrame:
+    trace: np.ndarray,
+    lookup_matrix=None,
+) -> pd.DataFrame:
     assert trace.ndim == 2
     num_iter, num_states = trace.shape
     num_stats = stat_state_count
@@ -184,8 +193,9 @@ def trace_to_stats_matrix(
                 "prob": stat_probs[it, idx],
             }
             stats.append(data)
-    
+
     return pd.DataFrame(stats)
+
 
 def plot_stat(stat_df: pd.DataFrame):
     fig, ax = plt.subplots(1, 2, figsize=(10, 6))
@@ -202,10 +212,11 @@ def plot_stat(stat_df: pd.DataFrame):
 
     return fig, ax
 
+
 def plot_stat_5(
-        stat_df: pd.DataFrame,
-        ax: plt.Axes = None,
-    ):
+    stat_df: pd.DataFrame,
+    ax: plt.Axes = None,
+):
     if ax is None:
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 
@@ -215,9 +226,9 @@ def plot_stat_5(
 
 
 def plot_stat_6(
-        stat_df: pd.DataFrame,
-        ax: plt.Axes = None,
-    ):
+    stat_df: pd.DataFrame,
+    ax: plt.Axes = None,
+):
     if ax is None:
         fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 
@@ -225,11 +236,12 @@ def plot_stat_6(
     stat_6 = stat_6.groupby(["iteration", "up6_count"]).sum().reset_index()
     sns.lineplot(data=stat_6, x="iteration", y="prob", hue="up6_count", ax=ax)
 
+
 def main_5(iterations: int, accumulate: bool = False):
     traces = simulate_matrix(iterations)
     stats = trace_to_stats_matrix(traces,
-        lookup_matrix=stat_lookup_accumulate_over_5 if accumulate else stat_lookup)
-    
+                                  lookup_matrix=stat_lookup_accumulate_over_5 if accumulate else stat_lookup)
+
     stats = stats[stats["up5_count"] > 0]
 
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
@@ -238,11 +250,12 @@ def main_5(iterations: int, accumulate: bool = False):
     fig.tight_layout()
     plt.show()
 
+
 def main_6(iterations: int, accumulate: bool = False):
     traces = simulate_matrix(iterations)
     stats = trace_to_stats_matrix(traces,
-        lookup_matrix=stat_lookup_accumulate_over_6 if accumulate else stat_lookup)
-    
+                                  lookup_matrix=stat_lookup_accumulate_over_6 if accumulate else stat_lookup)
+
     stats = stats[stats["up6_count"] > 0]
 
     fig, ax = plt.subplots(1, 1, figsize=(12, 6))
@@ -250,6 +263,7 @@ def main_6(iterations: int, accumulate: bool = False):
     ax.set_title("Accumulate over 6*")
     fig.tight_layout()
     plt.show()
+
 
 def up5_earlier_than_up6():
     traces = simulate_matrix(150)
@@ -270,4 +284,3 @@ def up5_earlier_than_up6():
 if __name__ == "__main__":
     main_5(200, accumulate=True)
     main_6(1000, accumulate=True)
-
